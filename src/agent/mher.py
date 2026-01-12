@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 import time
 import torch
@@ -6,7 +5,6 @@ import torch
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.sampler import Sampler
 from src.agent.her import HER
 
 
@@ -14,6 +12,7 @@ class MHER(HER):
     """
     Model-based Hindsight Experience Replay agent
     """
+
     def __init__(self, args, env):
         super().__init__(args, env)
         self.dynamics = EnsembleSingleStepDynamics(args)
@@ -21,14 +20,14 @@ class MHER(HER):
         if self.args.cuda:
             self.dynamics.cuda()
 
-        self.dynamics_optim = torch.optim.Adam(self.dynamics.parameters(),
-                                               lr=self.args.lr_transition)
+        self.dynamics_optim = torch.optim.Adam(
+            self.dynamics.parameters(), lr=self.args.lr_transition
+        )
 
         def sample_func(S, A, AG, G, size):
             return self.sampler.sample_mher_transitions(
-                    S, A, AG, G, size,
-                    self._imaginary_rollout,
-                    self.args.goal_idx)
+                S, A, AG, G, size, self._imaginary_rollout, self.args.goal_idx
+            )
 
         self.sample_func = sample_func
         self.buffer = ReplayBuffer(args, self.sample_func)
@@ -52,18 +51,18 @@ class MHER(HER):
 
     def _update(self):
         transition = self.buffer.sample(self.args.batch_size)
-        S   = transition['S']
-        NS  = transition['NS']
-        A   = transition['A']
-        G   = transition['G']
-        R   = transition['R']
+        S = transition["S"]
+        NS = transition["NS"]
+        A = transition["A"]
+        G = transition["G"]
+        R = transition["R"]
         # S/NS: (batch, dim_state)
         # A: (batch, dim_action)
         # G: (batch, dim_goal)
-        A  = numpy2torch(A, unsqueeze=False, cuda=self.args.cuda)
-        R  = numpy2torch(R, unsqueeze=False, cuda=self.args.cuda)
-        S,   G = self._preproc_inputs(S, G)
-        NS,  _ = self._preproc_inputs(NS)
+        A = numpy2torch(A, unsqueeze=False, cuda=self.args.cuda)
+        R = numpy2torch(R, unsqueeze=False, cuda=self.args.cuda)
+        S, G = self._preproc_inputs(S, G)
+        NS, _ = self._preproc_inputs(NS)
 
         # 1. update critic
         with torch.no_grad():
@@ -82,7 +81,7 @@ class MHER(HER):
 
         # 2. update actor
         A_ = self.actor(S, G)
-        actor_loss = - self.critic(S, A_, G).mean()
+        actor_loss = -self.critic(S, A_, G).mean()
         actor_loss += self.args.action_l2 * (A_ / self.args.max_action).pow(2).mean()
 
         # 3. update dynamics model
@@ -108,17 +107,21 @@ class MHER(HER):
         if MPI.COMM_WORLD.Get_rank() == 0:
             t0 = time.time()
             stats = {
-                'successes': [],
-                'hitting_times': [],
-                'actor_losses': [],
-                'critic_losses': [],
-                'dynamics_losses': [],
+                "successes": [],
+                "hitting_times": [],
+                "actor_losses": [],
+                "critic_losses": [],
+                "dynamics_losses": [],
             }
 
         # put something to the buffer first
         self.prefill_buffer()
         if self.args.cuda:
-            n_scales = (self.args.max_episode_steps * self.args.rollout_n_episodes // (self.args.n_batches*2)) + 1
+            n_scales = (
+                self.args.max_episode_steps
+                * self.args.rollout_n_episodes
+                // (self.args.n_batches * 2)
+            ) + 1
         else:
             n_scales = 1
 
@@ -129,10 +132,12 @@ class MHER(HER):
                 self.buffer.store_episode(S, A, AG, G)
                 self._update_normalizer(S, A, AG, G)
 
-                for _ in range(n_scales): # scale up for single thread
+                for _ in range(n_scales):  # scale up for single thread
                     for _ in range(self.args.n_batches):
                         a_loss, c_loss, d_loss = self._update()
-                        AL.append(a_loss); CL.append(c_loss); DL.append(d_loss)
+                        AL.append(a_loss)
+                        CL.append(c_loss)
+                        DL.append(d_loss)
 
                     self._soft_update(self.actor_target, self.actor)
                     self._soft_update(self.critic_target, self.critic)
@@ -141,14 +146,18 @@ class MHER(HER):
 
             if MPI.COMM_WORLD.Get_rank() == 0:
                 t1 = time.time()
-                AL = np.array(AL); CL = np.array(CL); DL = np.array(DL)
-                stats['successes'].append(global_success_rate)
-                stats['hitting_times'].append(global_hitting_time)
-                stats['actor_losses'].append(AL.mean())
-                stats['critic_losses'].append(CL.mean())
-                stats['dynamics_losses'].append(DL.mean())
-                print(f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "+\
-                        f" actor loss {AL.mean():6.4f} | critic loss {CL.mean():6.4f} | "+\
-                        f" dynamics loss {DL.mean():6.4f} | "+\
-                        f"time {(t1-t0)/60:6.4f} min")
+                AL = np.array(AL)
+                CL = np.array(CL)
+                DL = np.array(DL)
+                stats["successes"].append(global_success_rate)
+                stats["hitting_times"].append(global_hitting_time)
+                stats["actor_losses"].append(AL.mean())
+                stats["critic_losses"].append(CL.mean())
+                stats["dynamics_losses"].append(DL.mean())
+                print(
+                    f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "
+                    + f" actor loss {AL.mean():6.4f} | critic loss {CL.mean():6.4f} | "
+                    + f" dynamics loss {DL.mean():6.4f} | "
+                    + f"time {(t1 - t0) / 60:6.4f} min"
+                )
                 self.save_model(stats)

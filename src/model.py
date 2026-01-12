@@ -1,10 +1,6 @@
-import os
-import math
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as D
 
 
 ################################################################################
@@ -18,23 +14,24 @@ class Actor(nn.Module):
     """
     The policy network
     """
+
     def __init__(self, args):
         super(Actor, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
+        dim_goal = args.dim_goal
 
         self.net = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_action),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
     def forward(self, s, g):
@@ -54,26 +51,27 @@ class CriticMonolithic(nn.Module):
     """
     Monolithic Action-value Function Network (Q)
     """
+
     def __init__(self, args):
         super(CriticMonolithic, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
+        dim_goal = args.dim_goal
 
         self.net = nn.Sequential(
-            nn.Linear(dim_state+dim_goal+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_goal + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, 1)
+            nn.Linear(dim_hidden, 1),
         )
 
     def forward(self, s, a, g):
-        x = torch.cat([s, a/self.max_action, g], -1)
+        x = torch.cat([s, a / self.max_action, g], -1)
         q_value = self.net(x)
         return q_value
 
@@ -85,36 +83,37 @@ class CriticBilinear(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticBilinear, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
 
         self.f = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed)
+            nn.Linear(dim_hidden, dim_embed),
         )
         self.phi = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed)
+            nn.Linear(dim_hidden, dim_embed),
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         ff = self.f(x1)
         pp = self.phi(x2)
@@ -127,23 +126,24 @@ class CriticL2(nn.Module):
     L2-norm Action-value Function
     Q(s, a, g) = ||f(s, a) - phi(s, g)||^2
     """
+
     def __init__(self, args):
         super(CriticL2, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
 
         self.f = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed)
+            nn.Linear(dim_hidden, dim_embed),
         )
         self.phi = nn.Sequential(
             nn.Linear(dim_goal, dim_hidden),
@@ -152,11 +152,11 @@ class CriticL2(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed)
+            nn.Linear(dim_hidden, dim_embed),
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         ff = self.f(x1)
         pp = self.phi(g)
         q_value = -(ff - pp).pow(2).mean(-1, keepdims=True)
@@ -170,24 +170,25 @@ class CriticAsym(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsym, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -204,7 +205,7 @@ class CriticAsym(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -213,11 +214,12 @@ class CriticAsym(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         dist = dist_s + dist_a
         return -dist
+
 
 class CriticAsymNew(nn.Module):
     """
@@ -226,30 +228,32 @@ class CriticAsymNew(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsymNew, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_new_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
         self.gamma = args.gamma
 
         self.rew = nn.Sequential(
-            nn.Linear(dim_state+dim_action+dim_goal, 64),
+            nn.Linear(dim_state + dim_action + dim_goal, 64),
             nn.ReLU(inplace=True),
-            nn.Linear(64, 1))
+            nn.Linear(64, 1),
+        )
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -266,9 +270,9 @@ class CriticAsymNew(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
-        x3 = torch.cat([s, a/self.max_action, g], -1)
+        x3 = torch.cat([s, a / self.max_action, g], -1)
         r = self.rew(x3)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -277,16 +281,16 @@ class CriticAsymNew(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         dist = dist_s + dist_a
         return r - dist
 
     def sep_forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
-        x3 = torch.cat([s, a/self.max_action, g], -1)
+        x3 = torch.cat([s, a / self.max_action, g], -1)
         r = self.rew(x3)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -295,11 +299,11 @@ class CriticAsymNew(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         dist = dist_s + dist_a
-        return r.detach() -dist, r
+        return r.detach() - dist, r
 
 
 class CriticSym(nn.Module):
@@ -309,24 +313,25 @@ class CriticSym(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticSym, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -338,14 +343,14 @@ class CriticSym(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
 
         sym1 = self.sym(fh)
         sym2 = self.sym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         return -dist_s
 
 
@@ -356,24 +361,25 @@ class CriticSoftmax(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticSoftmax, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -385,7 +391,7 @@ class CriticSoftmax(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -396,6 +402,7 @@ class CriticSoftmax(nn.Module):
         dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         return -dist_a
 
+
 class CriticMax(nn.Module):
     """
     Bilinear Action-value Function Network
@@ -403,24 +410,25 @@ class CriticMax(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticMax, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -432,7 +440,7 @@ class CriticMax(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -440,7 +448,7 @@ class CriticMax(nn.Module):
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
         res = F.relu(asym1 - asym2)
-        #dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
+        # dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         dist_a = res.max(-1)[0].view(-1, 1)
         return -dist_a
 
@@ -452,24 +460,25 @@ class CriticAsymMax(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsymMax, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -486,7 +495,7 @@ class CriticAsymMax(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -497,11 +506,12 @@ class CriticAsymMax(nn.Module):
         asym2 = self.asym(phih)
         # A bug fix, since the metric should be the l2 norm instead of the square loss.
         # Thanks Wang et al for pointing this out at https://arxiv.org/abs/2211.15120
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True).sqrt()
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True).sqrt()
         res = F.relu(asym1 - asym2)
         dist_a = res.max(-1)[0].view(-1, 1)
         dist = dist_s + dist_a
         return -dist
+
 
 class CriticAsymMaxSAG(nn.Module):
     """
@@ -510,24 +520,25 @@ class CriticAsymMaxSAG(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsymMaxSAG, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_action + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -544,8 +555,8 @@ class CriticAsymMaxSAG(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
-        x2 = torch.cat([s, a/self.max_action, g], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
+        x2 = torch.cat([s, a / self.max_action, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
 
@@ -553,11 +564,12 @@ class CriticAsymMaxSAG(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = res.max(-1)[0].view(-1, 1)
         dist = dist_s + dist_a
         return -dist
+
 
 class CriticAsymMaxSAGLatent(nn.Module):
     """
@@ -566,26 +578,27 @@ class CriticAsymMaxSAGLatent(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsymMaxSAGLatent, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         dh = 140
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dh),
             nn.ReLU(inplace=True),
         )
         self.g_emb = nn.Linear(dim_goal, dh)
         self.phi_emb = nn.Sequential(
-            nn.Linear(dh*2, dim_hidden),
+            nn.Linear(dh * 2, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dh),
             nn.ReLU(inplace=True),
@@ -602,8 +615,8 @@ class CriticAsymMaxSAGLatent(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
-        #x2 = torch.cat([s, a/self.max_action, g], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
+        # x2 = torch.cat([s, a/self.max_action, g], -1)
         fh = self.f_emb(x1)
         x2 = torch.cat([fh, self.g_emb(g)], -1)
         phih = self.phi_emb(x2)
@@ -612,11 +625,12 @@ class CriticAsymMaxSAGLatent(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = res.max(-1)[0].view(-1, 1)
         dist = dist_s + dist_a
         return -dist
+
 
 class CriticAsymLSE(nn.Module):
     """
@@ -625,24 +639,25 @@ class CriticAsymLSE(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticAsymLSE, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -659,7 +674,7 @@ class CriticAsymLSE(nn.Module):
         )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         fh = self.f_emb(x1)
         phih = self.phi_emb(x2)
@@ -668,10 +683,10 @@ class CriticAsymLSE(nn.Module):
         sym2 = self.sym(phih)
         asym1 = self.asym(fh)
         asym2 = self.asym(phih)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
-        #dist_a = res.max(-1)[0].view(-1, 1)
-        dist_a = (res.exp().sum(-1, keepdims=True)+1e-4).log()
+        # dist_a = res.max(-1)[0].view(-1, 1)
+        dist_a = (res.exp().sum(-1, keepdims=True) + 1e-4).log()
         dist = dist_s + dist_a
         return -dist
 
@@ -683,19 +698,20 @@ class CriticModel(nn.Module):
 
     Link: https://openreview.net/pdf?id=LedObtLmCjS
     """
+
     def __init__(self, args):
         super(CriticModel, self).__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_model_hidden = args.dim_model_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
         self.dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_model_hidden),
+            nn.Linear(dim_state + dim_action, dim_model_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_model_hidden, dim_model_hidden),
             nn.ReLU(inplace=True),
@@ -703,7 +719,7 @@ class CriticModel(nn.Module):
         )
 
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_model_hidden),
+            nn.Linear(dim_state + dim_goal, dim_model_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_model_hidden, dim_model_hidden),
             nn.ReLU(inplace=True),
@@ -730,14 +746,14 @@ class CriticModel(nn.Module):
         sym2 = self.sym(gs)
         asym1 = self.asym(ns)
         asym2 = self.asym(gs)
-        dist_s = (sym1-sym2).pow(2).mean(-1, keepdims=True)
+        dist_s = (sym1 - sym2).pow(2).mean(-1, keepdims=True)
         res = F.relu(asym1 - asym2)
         dist_a = (F.softmax(res, -1) * res).sum(-1, keepdims=True)
         dist = dist_s + dist_a
         return -dist
 
     def forward_model(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         ns = self.f_emb(x1) + s
         gs = self.phi_emb(x2)
@@ -750,92 +766,97 @@ class CriticModel(nn.Module):
 #
 ################################################################################
 
+
 class ConstrainedLinear(nn.Linear):
-  def forward(self, x):
-    return F.linear(x, torch.min(self.weight ** 2, torch.abs(self.weight)))
+    def forward(self, x):
+        return F.linear(x, torch.min(self.weight**2, torch.abs(self.weight)))
 
 
 class MaxAvgGlobalActivation(nn.Module):
-  def __init__(self, args):
-    super().__init__()
-    self.alpha = nn.Parameter(-torch.ones(1))
-    if args.cuda:
-        self.alpha.cuda()
+    def __init__(self, args):
+        super().__init__()
+        self.alpha = nn.Parameter(-torch.ones(1))
+        if args.cuda:
+            self.alpha.cuda()
 
-  def forward(self, x):
-    alpha = torch.sigmoid(self.alpha)
-    return alpha * x.max(dim=-1)[0] + (1 - alpha) * x.mean(dim=-1)
+    def forward(self, x):
+        alpha = torch.sigmoid(self.alpha)
+        return alpha * x.max(dim=-1)[0] + (1 - alpha) * x.mean(dim=-1)
 
 
 class ConcaveActivation(nn.Module):
-  def __init__(self, num_features, concave_activation_size, args):
-    super().__init__()
-    assert concave_activation_size > 1
+    def __init__(self, num_features, concave_activation_size, args):
+        super().__init__()
+        assert concave_activation_size > 1
 
-    self.bs_nonzero = nn.Parameter(1e-3 * torch.randn((1, num_features, concave_activation_size - 1)) - 1)
-    self.bs_zero    = torch.zeros((1, num_features, 1))
-    self.ms = nn.Parameter(1e-3 * torch.randn((1, num_features, concave_activation_size)))
+        self.bs_nonzero = nn.Parameter(
+            1e-3 * torch.randn((1, num_features, concave_activation_size - 1)) - 1
+        )
+        self.bs_zero = torch.zeros((1, num_features, 1))
+        self.ms = nn.Parameter(
+            1e-3 * torch.randn((1, num_features, concave_activation_size))
+        )
 
-    if args.cuda:
-        self.bs_nonzero.cuda()
-        self.bs_zero = self.bs_zero.cuda()
-        self.ms.cuda()
+        if args.cuda:
+            self.bs_nonzero.cuda()
+            self.bs_zero = self.bs_zero.cuda()
+            self.ms.cuda()
 
-  def forward(self, x):
-    bs = torch.cat((F.softplus(self.bs_nonzero), self.bs_zero), -1)
-    ms = 2 * torch.sigmoid(self.ms)
-    x = x.unsqueeze(-1)
+    def forward(self, x):
+        bs = torch.cat((F.softplus(self.bs_nonzero), self.bs_zero), -1)
+        ms = 2 * torch.sigmoid(self.ms)
+        x = x.unsqueeze(-1)
 
-    x = x * ms + bs
-    return x.min(-1)[0]
+        x = x * ms + bs
+        return x.min(-1)[0]
 
 
 class ReduceMetric(nn.Module):
-  def __init__(self, mode, args):
-    super().__init__()
-    if mode == 'avg':
-      self.forward = self.avg_forward
-    elif mode == 'max':
-      self.forward = self.max_forward
-    elif mode == 'maxavg':
-      self.maxavg_activation = MaxAvgGlobalActivation(args)
-      self.forward = self.maxavg_forward
-    elif mode == 'softmax':
-        self.forward = self.softmax_forward
-    else:
-      raise NotImplementedError
+    def __init__(self, mode, args):
+        super().__init__()
+        if mode == "avg":
+            self.forward = self.avg_forward
+        elif mode == "max":
+            self.forward = self.max_forward
+        elif mode == "maxavg":
+            self.maxavg_activation = MaxAvgGlobalActivation(args)
+            self.forward = self.maxavg_forward
+        elif mode == "softmax":
+            self.forward = self.softmax_forward
+        else:
+            raise NotImplementedError
 
-  def maxavg_forward(self, x):
-    return self.maxavg_activation(x)
+    def maxavg_forward(self, x):
+        return self.maxavg_activation(x)
 
-  def max_forward(self, x):
-    return x.max(-1)[0]
+    def max_forward(self, x):
+        return x.max(-1)[0]
 
-  def avg_forward(self, x):
-    return x.mean(-1)
+    def avg_forward(self, x):
+        return x.mean(-1)
 
-  def softmax_forward(self, x):
-    return (F.softmax(x, -1) * x).sum(-1)
+    def softmax_forward(self, x):
+        return (F.softmax(x, -1) * x).sum(-1)
 
 
 class WideNormCritic(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -843,20 +864,21 @@ class WideNormCritic(nn.Module):
         self.phi = nn.Sequential(
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed))
+            nn.Linear(dim_hidden, dim_embed),
+        )
 
         self.symmetric = False
         num_features = dim_embed
         self.num_components = 62
         concave_activation_size = 8
-        if 'softmax' in args.critic:
-            mode = 'softmax'
-        elif 'maxavg' in args.critic:
-            mode = 'maxavg'
-        elif 'max' in args.critic:
-            mode = 'max'
+        if "softmax" in args.critic:
+            mode = "softmax"
+        elif "maxavg" in args.critic:
+            mode = "maxavg"
+        elif "max" in args.critic:
+            mode = "max"
         else:
-            mode = 'avg'
+            mode = "avg"
         self.component_size = args.dim_embed
 
         output_size = self.component_size * self.num_components
@@ -865,11 +887,15 @@ class WideNormCritic(nn.Module):
             self.f = ConstrainedLinear(num_features, output_size)
         else:
             self.f = nn.Linear(num_features, output_size)
-        self.concave_activation = ConcaveActivation(self.num_components, concave_activation_size, args) if concave_activation_size else nn.Identity()
+        self.concave_activation = (
+            ConcaveActivation(self.num_components, concave_activation_size, args)
+            if concave_activation_size
+            else nn.Identity()
+        )
         self.reduce_metric = ReduceMetric(mode, args)
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         x = self.phi(self.f_emb(x1))
         y = self.phi(self.phi_emb(x2))
@@ -888,20 +914,20 @@ class DeepNormCritic(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
@@ -909,16 +935,17 @@ class DeepNormCritic(nn.Module):
         self.phi = nn.Sequential(
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(dim_hidden, dim_embed))
+            nn.Linear(dim_hidden, dim_embed),
+        )
 
-        if 'softmax' in args.critic:
-            mode = 'softmax'
-        elif 'maxavg' in args.critic:
-            mode = 'maxavg'
-        elif 'max' in args.critic:
-            mode = 'max'
+        if "softmax" in args.critic:
+            mode = "softmax"
+        elif "maxavg" in args.critic:
+            mode = "maxavg"
+        elif "max" in args.critic:
+            mode = "max"
         else:
-            mode = 'avg'
+            mode = "avg"
         layers = [162, 162]
         self.symmetric = False
         concave_activation_size = 8
@@ -927,11 +954,15 @@ class DeepNormCritic(nn.Module):
         self.Ws = nn.ModuleList([])
 
         for in_features, out_features in zip(layers[:-1], layers[1:]):
-          self.Us.append(nn.Linear(num_features, out_features, bias=False))
-          self.Ws.append(ConstrainedLinear(in_features, out_features, bias=False))
+            self.Us.append(nn.Linear(num_features, out_features, bias=False))
+            self.Ws.append(ConstrainedLinear(in_features, out_features, bias=False))
 
         self.activation = nn.ReLU()
-        self.concave_activation = ConcaveActivation(layers[-1], concave_activation_size, args) if concave_activation_size else nn.Identity()
+        self.concave_activation = (
+            ConcaveActivation(layers[-1], concave_activation_size, args)
+            if concave_activation_size
+            else nn.Identity()
+        )
         self.reduce_metric = ReduceMetric(mode, args)
 
     def _asym_fwd(self, h):
@@ -941,7 +972,7 @@ class DeepNormCritic(nn.Module):
         return h1
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         x = self.phi(self.f_emb(x1))
         y = self.phi(self.phi_emb(x2))
@@ -955,47 +986,49 @@ class DeepNormCritic(nn.Module):
         dist = self.reduce_metric(h).view(-1, 1)
         return -dist
 
+
 ################################################################################
 #
 # PQE https://openreview.net/pdf?id=y0VvIg25yk
 #
 ################################################################################
 
-#from pqe import PQE
+# from pqe import PQE
 from src.pqe import PQE
+
 
 class CriticPQE(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.max_action = args.max_action
-        dim_state  = args.dim_state
+        dim_state = args.dim_state
         dim_hidden = args.dim_critic_hidden
         dim_action = args.dim_action
-        dim_goal   = args.dim_goal
-        dim_embed  = args.dim_embed
+        dim_goal = args.dim_goal
+        dim_embed = args.dim_embed
 
-        self.discounted_pqe = PQE(num_quasipartition_mixtures=16,
-                                  num_poisson_processes_per_quasipartition=4)
+        self.discounted_pqe = PQE(
+            num_quasipartition_mixtures=16, num_poisson_processes_per_quasipartition=4
+        )
 
         self.f_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_action, dim_hidden),
+            nn.Linear(dim_state + dim_action, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.phi_emb = nn.Sequential(
-            nn.Linear(dim_state+dim_goal, dim_hidden),
+            nn.Linear(dim_state + dim_goal, dim_hidden),
             nn.ReLU(inplace=True),
             nn.Linear(dim_hidden, dim_hidden),
             nn.ReLU(inplace=True),
         )
         self.encoder = nn.Sequential(
-            nn.Linear(dim_hidden, 300),
-            nn.ReLU(inplace=True),
-            nn.Linear(300, 16*4))
+            nn.Linear(dim_hidden, 300), nn.ReLU(inplace=True), nn.Linear(300, 16 * 4)
+        )
 
     def forward(self, s, a, g):
-        x1 = torch.cat([s, a/self.max_action], -1)
+        x1 = torch.cat([s, a / self.max_action], -1)
         x2 = torch.cat([s, g], -1)
         zx = self.encoder(self.f_emb(x1))
         zy = self.encoder(self.phi_emb(x2))

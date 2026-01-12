@@ -11,7 +11,9 @@ from .measures import MeasureBase, LebesgueMeasure, GaussianBasedMeasure
 
 class ShapeBase(nn.Module, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def expected_quasipartiton(self: 'ShapeBase', u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase):
+    def expected_quasipartiton(
+        self: "ShapeBase", u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase
+    ):
         r"""
         Computes the expected quasipartition as defined in Equation (13):
 
@@ -27,7 +29,9 @@ class ShapeBase(nn.Module, metaclass=abc.ABCMeta):
 
 
 class HalfLineShape(ShapeBase):
-    def expected_quasipartiton(self, u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase):
+    def expected_quasipartiton(
+        self, u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase
+    ):
         # Shapes are (-infty, u) and (-\infty, v)
         if isinstance(measure, LebesgueMeasure):
             # PQE-LH, Eqn. (9)
@@ -38,7 +42,11 @@ class HalfLineShape(ShapeBase):
             # Use mean instead of sum as a normalization for better stability at initialization (Sec. C.4.1).
             return -torch.expm1((v - u).clamp(max=0).mean(-1))
         elif isinstance(measure, GaussianBasedMeasure):
-            measure_exceed = measure.scale((cdf_ops.ndtr(v / measure.sigma) - cdf_ops.ndtr(u / measure.sigma)).clamp(max=0))
+            measure_exceed = measure.scale(
+                (
+                    cdf_ops.ndtr(v / measure.sigma) - cdf_ops.ndtr(u / measure.sigma)
+                ).clamp(max=0)
+            )
             return -torch.expm1(measure_exceed.mean(-1))
         else:
             raise NotImplementedError(f"measure={measure} is not supported")
@@ -49,10 +57,14 @@ class GaussianShape(ShapeBase):
     sigma = 1
     log_2pi = np.log(2 * np.pi)
 
-    def expected_quasipartiton(self, u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase):
+    def expected_quasipartiton(
+        self, u: torch.Tensor, v: torch.Tensor, *, measure: MeasureBase
+    ):
         # Shapes are areas under the unit Gaussian CDF centered at u or v
         if isinstance(measure, LebesgueMeasure):
-            raise RuntimeError('Gaussian shape under lebesgue measure is always symmetrical')
+            raise RuntimeError(
+                "Gaussian shape under lebesgue measure is always symmetrical"
+            )
         elif isinstance(measure, GaussianBasedMeasure):
             # See Sec. C.2 for details.
 
@@ -76,9 +88,9 @@ class GaussianShape(ShapeBase):
             sum_sigma2 = shape_sigma2 + measure_sigma2
             log_sum_sigma2 = torch.log(sum_sigma2)
 
-            log_total_base = - (self.log_2pi + log_sum_sigma2) / 2
-            log_total_u = log_total_base - 0.5 * (u ** 2) / sum_sigma2
-            log_total_v = log_total_base - 0.5 * (v ** 2) / sum_sigma2
+            log_total_base = -(self.log_2pi + log_sum_sigma2) / 2
+            log_total_u = log_total_base - 0.5 * (u**2) / sum_sigma2
+            log_total_v = log_total_base - 0.5 * (v**2) / sum_sigma2
             total_u = log_total_u.exp()
             total_v = log_total_v.exp()
 
@@ -93,8 +105,8 @@ class GaussianShape(ShapeBase):
             new_mu_mult = measure_sigma2 / sum_sigma2
             new_sig2 = shape_sigma2 * new_mu_mult
             new_sig = torch.sqrt(new_sig2)
-            u2mid_frac = cdf_ops.ndtr( (mid - u * new_mu_mult) / new_sig )  # noqa: E201, E202
-            v2mid_frac = cdf_ops.ndtr( (mid - v * new_mu_mult) / new_sig )  # noqa: E201, E202
+            u2mid_frac = cdf_ops.ndtr((mid - u * new_mu_mult) / new_sig)  # noqa: E201, E202
+            v2mid_frac = cdf_ops.ndtr((mid - v * new_mu_mult) / new_sig)  # noqa: E201, E202
 
             intersection = torch.where(
                 u < v,
@@ -112,7 +124,9 @@ class GaussianShape(ShapeBase):
 
             u_only, v_only = measure.scale_multiple(u_only, v_only)
 
-            ple: torch.Tensor = cdf_ops.prob_two_poisson_le(u_only / u.shape[-1], v_only / v.shape[-1])
+            ple: torch.Tensor = cdf_ops.prob_two_poisson_le(
+                u_only / u.shape[-1], v_only / v.shape[-1]
+            )
             return 1 - ple.prod(dim=-1)
         else:
             raise NotImplementedError(f"measure={measure} is not supported")

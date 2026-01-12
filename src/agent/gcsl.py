@@ -1,12 +1,9 @@
-import copy
 import numpy as np
 import time
-import torch
 
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.sampler import Sampler
 from src.agent.base import Agent
 
 
@@ -21,6 +18,7 @@ class GCSL(Agent):
     """
     Goal-conditioned supervised learning agent
     """
+
     def __init__(self, args, env):
         super().__init__(args, env)
         self.sample_func = self.sampler.sample_gcsl_transitions
@@ -28,9 +26,9 @@ class GCSL(Agent):
 
     def _update(self):
         transition = self.buffer.sample(self.args.batch_size)
-        S  = transition['S']
-        A  = transition['A']
-        G  = transition['G']
+        S = transition["S"]
+        A = transition["A"]
+        G = transition["G"]
         # S: (batch, dim_state)
         # A: (batch, dim_action)
         # G: (batch, dim_goal)
@@ -52,15 +50,19 @@ class GCSL(Agent):
             successes = []
             hitting_times = []
             stats = {
-                'successes': [],
-                'hitting_times': [],
-                'actor_losses': [],
+                "successes": [],
+                "hitting_times": [],
+                "actor_losses": [],
             }
 
         # put something to the buffer first
         self.prefill_buffer()
         if self.args.cuda:
-            n_scales = (self.args.max_episode_steps * self.args.rollout_n_episodes // (self.args.n_batches*2)) + 1
+            n_scales = (
+                self.args.max_episode_steps
+                * self.args.rollout_n_episodes
+                // (self.args.n_batches * 2)
+            ) + 1
         else:
             n_scales = 1
 
@@ -71,7 +73,7 @@ class GCSL(Agent):
                 self.buffer.store_episode(S, A, AG, G)
                 self._update_normalizer(S, A, AG, G)
 
-                for _ in range(n_scales): # scale up for single thread
+                for _ in range(n_scales):  # scale up for single thread
                     for _ in range(self.args.n_batches):
                         al = self._update()
                         AL.append(al)
@@ -81,9 +83,11 @@ class GCSL(Agent):
             if MPI.COMM_WORLD.Get_rank() == 0:
                 t1 = time.time()
                 AL = np.array(AL)
-                stats['successes'].append(global_success_rate)
-                stats['hitting_times'].append(global_hitting_time)
-                stats['actor_losses'].append(AL.mean())
-                print(f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "+\
-                        f"time {(t1-t0)/60:6.4f} min")
+                stats["successes"].append(global_success_rate)
+                stats["hitting_times"].append(global_hitting_time)
+                stats["actor_losses"].append(AL.mean())
+                print(
+                    f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "
+                    + f"time {(t1 - t0) / 60:6.4f} min"
+                )
                 self.save_model(stats)

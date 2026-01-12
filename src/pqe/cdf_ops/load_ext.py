@@ -5,11 +5,11 @@ import warnings
 from torch.utils.cpp_extension import load
 
 
-def check_env_flag(name, default=''):
-    return os.getenv(name, default).upper() in ['ON', '1', 'YES', 'TRUE', 'Y']
+def check_env_flag(name, default=""):
+    return os.getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
 
 
-DEBUG_FLAG = check_env_flag('DEBUG', default='0')
+DEBUG_FLAG = check_env_flag("DEBUG", default="0")
 
 
 def get_source_files():
@@ -20,25 +20,38 @@ def get_source_files():
         os.path.join(os.path.dirname(__file__), "cpu", "cdflib", "cdflib.cpp"),
     ]
     # CUDA
-    files.extend(glob.glob(os.path.join(
-        glob.escape(os.path.join(os.path.dirname(__file__), "cuda")),
-        "kernels_*.cu",
-    )))
+    files.extend(
+        glob.glob(
+            os.path.join(
+                glob.escape(os.path.join(os.path.dirname(__file__), "cuda")),
+                "kernels_*.cu",
+            )
+        )
+    )
     return tuple(files)
 
 
 def get_extra_cflags():
     if DEBUG_FLAG:
-        return ['-O0', '-fopenmp', '-march=native', '-g']
+        return ["-O0", "-fopenmp", "-march=native", "-g"]
     else:
-        return ['-O3', '-fopenmp', '-march=native', '-funroll-loops']
+        return ["-O3", "-fopenmp", "-march=native", "-funroll-loops"]
 
 
 def get_extra_cuda_cflags():
     if DEBUG_FLAG:
-        return ['--expt-relaxed-constexpr', '--expt-extended-lambda', '-O0', '-Xcicc', '-O0', '-Xptxas', '-O0', '-g']
+        return [
+            "--expt-relaxed-constexpr",
+            "--expt-extended-lambda",
+            "-O0",
+            "-Xcicc",
+            "-O0",
+            "-Xptxas",
+            "-O0",
+            "-g",
+        ]
     else:
-        return ['--expt-relaxed-constexpr', '--expt-extended-lambda', '-O3']
+        return ["--expt-relaxed-constexpr", "--expt-extended-lambda", "-O3"]
 
 
 _extension_loaded: bool = False
@@ -57,9 +70,10 @@ def load_extension_if_needed():
 
     if _warn_first_load:
         warnings.warn(
-            'Loading `cdf_ops` extension. If this is the first compilation on this machine, '
-            'up to 10 minutes is needed. Subsequent loading will use cached results. '
-            'Use `pqe.cdf_ops.disable_load_extension_warning()` to suppress this warning.')
+            "Loading `cdf_ops` extension. If this is the first compilation on this machine, "
+            "up to 10 minutes is needed. Subsequent loading will use cached results. "
+            "Use `pqe.cdf_ops.disable_load_extension_warning()` to suppress this warning."
+        )
 
     # JIT load
     load(

@@ -1,6 +1,7 @@
 from typing import *
 
 import torch
+
 try:
     import torch.special as tsp
 except ImportError:
@@ -10,7 +11,9 @@ except ImportError:
 from .load_ext import load_extension_if_needed
 
 
-def chndtr(x: torch.Tensor, df: Union[torch.Tensor, float], nc: torch.Tensor) -> torch.Tensor:
+def chndtr(
+    x: torch.Tensor, df: Union[torch.Tensor, float], nc: torch.Tensor
+) -> torch.Tensor:
     r"""
     Computes the non-central Chi-square CDF.
 
@@ -21,7 +24,8 @@ def chndtr(x: torch.Tensor, df: Union[torch.Tensor, float], nc: torch.Tensor) ->
     return torch.ops.cdf_ops.chndtr(x, df, nc)
 
 
-if not hasattr(torch, 'i0'):  # i0 was first added as torch.i0
+if not hasattr(torch, "i0"):  # i0 was first added as torch.i0
+
     def i0(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the zeroth order modified Bessel function of the first kind for each element of :attr:`input`.
@@ -32,6 +36,7 @@ if not hasattr(torch, 'i0'):  # i0 was first added as torch.i0
         load_extension_if_needed()
         return torch.ops.cdf_ops.i0(input)
 else:
+
     def i0(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the zeroth order modified Bessel function of the first kind for each element of :attr:`input`.
@@ -42,7 +47,8 @@ else:
         return torch.i0(input)
 
 
-if not hasattr(tsp, 'i0e'):
+if not hasattr(tsp, "i0e"):
+
     def i0e(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the exponentially scaled zeroth order modified Bessel function of the first kind (as defined below)
@@ -54,6 +60,7 @@ if not hasattr(tsp, 'i0e'):
         load_extension_if_needed()
         return torch.ops.cdf_ops.i0e(input)
 else:
+
     def i0e(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the exponentially scaled zeroth order modified Bessel function of the first kind (as defined below)
@@ -65,7 +72,8 @@ else:
         return tsp.i0e(input)
 
 
-if not hasattr(tsp, 'i1'):
+if not hasattr(tsp, "i1"):
+
     def i1(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the first order modified Bessel function of the first kind (as defined below)
@@ -77,6 +85,7 @@ if not hasattr(tsp, 'i1'):
         load_extension_if_needed()
         return torch.ops.cdf_ops.i1(input)
 else:
+
     def i1(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the first order modified Bessel function of the first kind (as defined below)
@@ -88,7 +97,8 @@ else:
         return tsp.i1(input)
 
 
-if not hasattr(tsp, 'i1e'):
+if not hasattr(tsp, "i1e"):
+
     def i1e(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the exponentially scaled first order modified Bessel function of the first kind (as defined below)
@@ -101,6 +111,7 @@ if not hasattr(tsp, 'i1e'):
         load_extension_if_needed()
         return torch.ops.cdf_ops.i1e(input)
 else:
+
     def i1e(input: torch.Tensor) -> torch.Tensor:
         r"""
         Computes the exponentially scaled first order modified Bessel function of the first kind (as defined below)
@@ -158,7 +169,14 @@ def prod_ndtr(x: torch.Tensor, *, dim: int = -1) -> torch.Tensor:
 
 
 __all__ = [
-    'chndtr', 'i0', 'i0e', 'i1', 'i1e',
-    'prob_two_poisson_gt', 'prob_two_poisson_le',
-    'ndtr', 'log_ndtr', 'prod_ndtr',
+    "chndtr",
+    "i0",
+    "i0e",
+    "i1",
+    "i1e",
+    "prob_two_poisson_gt",
+    "prob_two_poisson_le",
+    "ndtr",
+    "log_ndtr",
+    "prod_ndtr",
 ]

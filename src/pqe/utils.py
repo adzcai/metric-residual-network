@@ -37,9 +37,10 @@ def ceilpow2(x: int):
     return 1 << (x - 1).bit_length()
 
 
-if hasattr(torch, 'linalg') and hasattr(torch.linalg, 'multi_dot'):
+if hasattr(torch, "linalg") and hasattr(torch.linalg, "multi_dot"):
     multidot = torch.linalg.multi_dot
 else:
+
     def multidot(mats: List[torch.Tensor]):
         return torch.chain_matmul(*mats)
 
@@ -55,7 +56,9 @@ class DeepLinearNet(nn.Module):
 
     bias: Optional[torch.Tensor]
 
-    def __init__(self, input_dim, output_dim, *, hidden_dims=None, non_negative=False, bias=True):
+    def __init__(
+        self, input_dim, output_dim, *, hidden_dims=None, non_negative=False, bias=True
+    ):
         super().__init__()
 
         if hidden_dims is None:
@@ -74,15 +77,22 @@ class DeepLinearNet(nn.Module):
         mats = []
         layer_in_dim = dims[0]
         for nh in dims[1:]:
-            mats.append(nn.Linear(layer_in_dim, nh, bias=False).weight)  # [linout, linin]
+            mats.append(
+                nn.Linear(layer_in_dim, nh, bias=False).weight
+            )  # [linout, linin]
             nn.init.kaiming_normal_(mats[-1], a=1)  # a=1 for linear!
             layer_in_dim = nh
         self.mats = nn.ParameterList(mats[::-1])
 
         if bias:
-            self.register_parameter('bias', nn.Parameter(torch.zeros(self.output_dim, self.input_dim), requires_grad=True))
+            self.register_parameter(
+                "bias",
+                nn.Parameter(
+                    torch.zeros(self.output_dim, self.input_dim), requires_grad=True
+                ),
+            )
         else:
-            self.register_buffer('bias', None)
+            self.register_buffer("bias", None)
 
     def collapse(self) -> torch.Tensor:
         # Returns A of Ax

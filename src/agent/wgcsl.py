@@ -6,47 +6,47 @@ import torch
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.sampler import Sampler
 from src.agent.gcsl import GCSL
 
 
 class Advque:
     def __init__(self, size=50000):
-        self.size = size 
+        self.size = size
         self.current_size = 0
         self.que = np.zeros(size)
         self.idx = 0
-    
+
     def update(self, values):
         values = values.reshape(-1)
         l = len(values)
 
         if self.idx + l <= self.size:
-            idxes = np.arange(self.idx, self.idx+l)
+            idxes = np.arange(self.idx, self.idx + l)
         else:
             idx1 = np.arange(self.idx, self.size)
-            idx2 = np.arange(0, self.idx+l -self.size)
+            idx2 = np.arange(0, self.idx + l - self.size)
             idxes = np.concatenate((idx1, idx2))
         self.que[idxes] = values.reshape(-1)
 
-        self.idx = (self.idx + l) % self.size 
-        self.current_size = min(self.current_size+l, self.size)
+        self.idx = (self.idx + l) % self.size
+        self.current_size = min(self.current_size + l, self.size)
 
     def get(self, threshold):
-        return np.percentile(self.que[:self.current_size], threshold)
+        return np.percentile(self.que[: self.current_size], threshold)
 
 
 class WGCSL(GCSL):
     """
     Goal-conditioned supervised learning agent
     """
+
     def __init__(self, args, env):
         super().__init__(args, env)
 
         critic_map = {
-            'monolithic': CriticMonolithic,
-            'bilinear': CriticBilinear,
-            'l2': CriticL2,
+            "monolithic": CriticMonolithic,
+            "bilinear": CriticBilinear,
+            "l2": CriticL2,
         }
         self.critic = critic_map[args.critic](args)
         sync_networks(self.critic)
@@ -57,15 +57,24 @@ class WGCSL(GCSL):
         if self.args.cuda:
             self.critic.cuda()
             self.critic_target.cuda()
-        self.critic_optim  = torch.optim.Adam(self.critic.parameters(),
-                                              lr=self.args.lr_critic)
+        self.critic_optim = torch.optim.Adam(
+            self.critic.parameters(), lr=self.args.lr_critic
+        )
 
         self.adv_que = Advque()
 
         def sample_func(S, A, AG, G, size):
             return self.sampler.sample_wgcsl_transitions(
-                    S, A, AG, G, size, args,
-                    self._get_Q, self.env.compute_reward, self.adv_que)
+                S,
+                A,
+                AG,
+                G,
+                size,
+                args,
+                self._get_Q,
+                self.env.compute_reward,
+                self.adv_que,
+            )
 
         self.sample_func = sample_func
         self.buffer = ReplayBuffer(args, self.sample_func)
@@ -79,12 +88,12 @@ class WGCSL(GCSL):
 
     def _update(self):
         transition = self.buffer.sample(self.args.batch_size)
-        S  = transition['S']
-        NS = transition['NS']
-        A  = transition['A']
-        G  = transition['G']
-        R  = transition['R']
-        W  = transition['W']
+        S = transition["S"]
+        NS = transition["NS"]
+        A = transition["A"]
+        G = transition["G"]
+        R = transition["R"]
+        W = transition["W"]
         # S: (batch, dim_state)
         # A: (batch, dim_action)
         # G: (batch, dim_goal)
@@ -130,16 +139,20 @@ class WGCSL(GCSL):
             successes = []
             hitting_times = []
             stats = {
-                'successes': [],
-                'hitting_times': [],
-                'actor_losses': [],
-                'critic_losses': [],
+                "successes": [],
+                "hitting_times": [],
+                "actor_losses": [],
+                "critic_losses": [],
             }
 
         # put something to the buffer first
         self.prefill_buffer()
         if self.args.cuda:
-            n_scales = (self.args.max_episode_steps * self.args.rollout_n_episodes // (self.args.n_batches*2)) + 1
+            n_scales = (
+                self.args.max_episode_steps
+                * self.args.rollout_n_episodes
+                // (self.args.n_batches * 2)
+            ) + 1
         else:
             n_scales = 1
 
@@ -150,10 +163,11 @@ class WGCSL(GCSL):
                 self.buffer.store_episode(S, A, AG, G)
                 self._update_normalizer(S, A, AG, G)
 
-                for _ in range(n_scales): # scale up for single thread
+                for _ in range(n_scales):  # scale up for single thread
                     for _ in range(self.args.n_batches):
                         a_loss, c_loss = self._update()
-                        AL.append(a_loss); CL.append(c_loss)
+                        AL.append(a_loss)
+                        CL.append(c_loss)
 
                     self._soft_update(self.actor_target, self.actor)
                     self._soft_update(self.critic_target, self.critic)
@@ -162,11 +176,14 @@ class WGCSL(GCSL):
 
             if MPI.COMM_WORLD.Get_rank() == 0:
                 t1 = time.time()
-                AL = np.array(AL); CL = np.array(CL)
-                stats['successes'].append(global_success_rate)
-                stats['hitting_times'].append(global_hitting_time)
-                stats['actor_losses'].append(AL.mean())
-                stats['critic_losses'].append(CL.mean())
-                print(f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "+\
-                        f"time {(t1-t0)/60:6.4f} min")
+                AL = np.array(AL)
+                CL = np.array(CL)
+                stats["successes"].append(global_success_rate)
+                stats["hitting_times"].append(global_hitting_time)
+                stats["actor_losses"].append(AL.mean())
+                stats["critic_losses"].append(CL.mean())
+                print(
+                    f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "
+                    + f"time {(t1 - t0) / 60:6.4f} min"
+                )
                 self.save_model(stats)

@@ -7,7 +7,6 @@ from mpi4py import MPI
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.sampler import Sampler
 from src.agent.base import Agent
 
 
@@ -15,30 +14,31 @@ class DDPG(Agent):
     """
     Deep Deterministic Policy Gradient agent
     """
+
     def __init__(self, args, env):
         super().__init__(args, env)
-        
+
         critic_map = {
-            'monolithic': CriticMonolithic,
-            'bilinear': CriticBilinear,
-            'l2': CriticL2,
-            'asym': CriticAsym,
-            'asym-max': CriticAsymMax,
-            'asym-max-sag': CriticAsymMaxSAG,
-            'asym-max-sag-latent': CriticAsymMaxSAGLatent,
-            'asym-lse': CriticAsymLSE,
-            'dn': DeepNormCritic,
-            'dn-max': DeepNormCritic,
-            'dn-softmax': DeepNormCritic,
-            'wn': WideNormCritic,
-            'wn-softmax': WideNormCritic,
-            'wn-max': WideNormCritic,
-            'wn-maxavg': WideNormCritic,
-            'max': CriticMax,
-            'softmax': CriticSoftmax,
-            'sym': CriticSym,
-            'pqe': CriticPQE,
-            'asym-new': CriticAsymNew,
+            "monolithic": CriticMonolithic,
+            "bilinear": CriticBilinear,
+            "l2": CriticL2,
+            "asym": CriticAsym,
+            "asym-max": CriticAsymMax,
+            "asym-max-sag": CriticAsymMaxSAG,
+            "asym-max-sag-latent": CriticAsymMaxSAGLatent,
+            "asym-lse": CriticAsymLSE,
+            "dn": DeepNormCritic,
+            "dn-max": DeepNormCritic,
+            "dn-softmax": DeepNormCritic,
+            "wn": WideNormCritic,
+            "wn-softmax": WideNormCritic,
+            "wn-max": WideNormCritic,
+            "wn-maxavg": WideNormCritic,
+            "max": CriticMax,
+            "softmax": CriticSoftmax,
+            "sym": CriticSym,
+            "pqe": CriticPQE,
+            "asym-new": CriticAsymNew,
         }
         self.critic_name = args.critic
         self.critic = critic_map[args.critic](args)
@@ -53,18 +53,19 @@ class DDPG(Agent):
             self.critic.cuda()
             self.critic_target.cuda()
 
-        self.critic_optim  = torch.optim.Adam(self.critic.parameters(),
-                                              lr=self.args.lr_critic)
+        self.critic_optim = torch.optim.Adam(
+            self.critic.parameters(), lr=self.args.lr_critic
+        )
         self.buffer = ReplayBuffer(args, self.sampler.sample_ddpg_transitions)
 
     def _update(self):
         transition = self.buffer.sample(self.args.batch_size)
-        S  = transition['S']
-        NS = transition['NS']
-        A  = transition['A']
-        G  = transition['G']
-        R  = transition['R']
-        NG = transition['NG']
+        S = transition["S"]
+        NS = transition["NS"]
+        A = transition["A"]
+        G = transition["G"]
+        R = transition["R"]
+        NG = transition["NG"]
         # S/NS: (batch, dim_state)
         # A: (batch, dim_action)
         # G: (batch, dim_goal)
@@ -85,7 +86,7 @@ class DDPG(Agent):
             else:
                 target = (R + self.args.gamma * NQ).detach().clamp_(0, clip_return)
                 if self.args.terminate:
-                    target = (1-R) * target + R
+                    target = (1 - R) * target + R
 
         if self.critic_name == "asym-new":
             Q, r = self.critic.sep_forward(S, A, G)
@@ -95,16 +96,16 @@ class DDPG(Agent):
             critic_loss = (Q - target).pow(2).mean()
 
         A_ = self.actor(S, G)
-        actor_loss = - self.critic(S, A_, G).mean()
+        actor_loss = -self.critic(S, A_, G).mean()
         actor_loss += self.args.action_l2 * (A_ / self.args.max_action).pow(2).mean()
 
         self.actor_optim.zero_grad()
-        (actor_loss*self.args.loss_scale).backward()
+        (actor_loss * self.args.loss_scale).backward()
         actor_grad_norm = sync_grads(self.actor)
         self.actor_optim.step()
 
         self.critic_optim.zero_grad()
-        (critic_loss*self.args.loss_scale).backward()
+        (critic_loss * self.args.loss_scale).backward()
         critic_grad_norm = sync_grads(self.critic)
         self.critic_optim.step()
         return actor_loss.item(), critic_loss.item(), actor_grad_norm, critic_grad_norm
@@ -113,12 +114,12 @@ class DDPG(Agent):
         if MPI.COMM_WORLD.Get_rank() == 0:
             t0 = time.time()
             stats = {
-                'successes': [],
-                'hitting_times': [],
-                'actor_losses': [],
-                'critic_losses': [],
-                'actor_grad_norms': [],
-                'critic_grad_norms': [],
+                "successes": [],
+                "hitting_times": [],
+                "actor_losses": [],
+                "critic_losses": [],
+                "actor_grad_norms": [],
+                "critic_grad_norms": [],
             }
 
         # put something to the buffer first
@@ -133,8 +134,10 @@ class DDPG(Agent):
                 self._update_normalizer(S, A, AG, G)
                 for _ in range(self.args.n_batches):
                     a_loss, c_loss, a_gn, c_gn = self._update()
-                    AL.append(a_loss); CL.append(c_loss)
-                    AGN.append(a_gn); CGN.append(c_gn)
+                    AL.append(a_loss)
+                    CL.append(c_loss)
+                    AGN.append(a_gn)
+                    CGN.append(c_gn)
 
                 self._soft_update(self.actor_target, self.actor)
                 self._soft_update(self.critic_target, self.critic)
@@ -143,16 +146,20 @@ class DDPG(Agent):
 
             if MPI.COMM_WORLD.Get_rank() == 0:
                 t1 = time.time()
-                AL = np.array(AL); CL = np.array(CL)
-                AGN = np.array(AGN); CGN = np.array(CGN)
-                stats['successes'].append(global_success_rate)
-                stats['hitting_times'].append(global_hitting_time)
-                stats['actor_losses'].append(AL.mean())
-                stats['critic_losses'].append(CL.mean())
-                stats['actor_grad_norms'].append(AGN.mean())
-                stats['critic_grad_norms'].append(CGN.mean())
-                print(f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "+\
-                        f" actor loss {AL.mean():6.4f} | critic loss {CL.mean():6.4f} | "+\
-                        f" actor gradnorm {AGN.mean():6.4f} | critic gradnorm {CGN.mean():6.4f} | "+\
-                        f"time {(t1-t0)/60:6.4f} min")
+                AL = np.array(AL)
+                CL = np.array(CL)
+                AGN = np.array(AGN)
+                CGN = np.array(CGN)
+                stats["successes"].append(global_success_rate)
+                stats["hitting_times"].append(global_hitting_time)
+                stats["actor_losses"].append(AL.mean())
+                stats["critic_losses"].append(CL.mean())
+                stats["actor_grad_norms"].append(AGN.mean())
+                stats["critic_grad_norms"].append(CGN.mean())
+                print(
+                    f"[info] epoch {epoch:3d} success rate {global_success_rate:6.4f} | "
+                    + f" actor loss {AL.mean():6.4f} | critic loss {CL.mean():6.4f} | "
+                    + f" actor gradnorm {AGN.mean():6.4f} | critic gradnorm {CGN.mean():6.4f} | "
+                    + f"time {(t1 - t0) / 60:6.4f} min"
+                )
                 self.save_model(stats)

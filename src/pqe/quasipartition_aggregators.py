@@ -14,7 +14,9 @@ class QuasipartitionAggregatorBase(nn.Module):
 class DistanceAggregator(QuasipartitionAggregatorBase):
     def __init__(self, num_quasipartition_mixtures: int):
         super().__init__(num_quasipartition_mixtures)
-        self.alpha_net = DeepLinearNet(input_dim=num_quasipartition_mixtures, output_dim=1, non_negative=True)
+        self.alpha_net = DeepLinearNet(
+            input_dim=num_quasipartition_mixtures, output_dim=1, non_negative=True
+        )
 
     def forward(self, expected_quasipartitions: torch.Tensor) -> torch.Tensor:
         return self.alpha_net(expected_quasipartitions).squeeze(-1)
@@ -24,7 +26,9 @@ class DiscountedDistanceAggregator(QuasipartitionAggregatorBase):
     # Sec. C.4.2
     def __init__(self, num_quasipartition_mixtures: int):
         super().__init__(num_quasipartition_mixtures)
-        self.beta_net = DeepLinearNet(input_dim=1, output_dim=num_quasipartition_mixtures, non_negative=False)
+        self.beta_net = DeepLinearNet(
+            input_dim=1, output_dim=num_quasipartition_mixtures, non_negative=False
+        )
 
         # Initialize logits so initial output is between 0.5 and 0.75. (Sec. C.4.3)
         #
@@ -51,11 +55,13 @@ class DiscountedDistanceAggregator(QuasipartitionAggregatorBase):
             # collapse all but last
             out_before_last: torch.Tensor = multidot(ms[1:])
             norm_out_before_last = out_before_last.norm()
-            unit_out_before_last = out_before_last/ out_before_last.norm()
+            unit_out_before_last = out_before_last / out_before_last.norm()
 
             # now simply constrain the projection dimension
-            ms[0].sub_((ms[0] @ unit_out_before_last) @ unit_out_before_last.T) \
-                    .add_(torch.empty(k, 1).uniform_(low, high).div(norm_out_before_last) @ unit_out_before_last.T)  # noqa: E501
+            ms[0].sub_((ms[0] @ unit_out_before_last) @ unit_out_before_last.T).add_(
+                torch.empty(k, 1).uniform_(low, high).div(norm_out_before_last)
+                @ unit_out_before_last.T
+            )  # noqa: E501
             q = self.beta_net.collapse().squeeze(1).sigmoid().pow(0.5).prod().item()
             assert low_out <= q <= high_out, q
 

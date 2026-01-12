@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 
-from .quasipartition_aggregators import QuasipartitionAggregatorBase, DistanceAggregator, DiscountedDistanceAggregator
+from .quasipartition_aggregators import (
+    QuasipartitionAggregatorBase,
+    DistanceAggregator,
+    DiscountedDistanceAggregator,
+)
 from .measures import MeasureBase, LebesgueMeasure, GaussianBasedMeasure
 from .shapes import ShapeBase, HalfLineShape, GaussianShape
 from .utils import get_num_effective_parameters
@@ -89,37 +93,51 @@ class PQE(nn.Module):
     measure: MeasureBase
     shape: ShapeBase
 
-    def __init__(self,
-                 num_quasipartition_mixtures: int,
-                 num_poisson_processes_per_quasipartition: int = 4,
-                 measure: str = 'lebesgue',
-                 shape: str = 'halfline',
-                 discounted: bool = False):
+    def __init__(
+        self,
+        num_quasipartition_mixtures: int,
+        num_poisson_processes_per_quasipartition: int = 4,
+        measure: str = "lebesgue",
+        shape: str = "halfline",
+        discounted: bool = False,
+    ):
         super().__init__()
-        assert num_quasipartition_mixtures > 0, "num_quasipartition_mixtures must be positive"
-        assert num_poisson_processes_per_quasipartition > 0, "num_poisson_processes_per_quasipartition must be positive"
-        self.latent_dim = num_quasipartition_mixtures * num_poisson_processes_per_quasipartition
+        assert num_quasipartition_mixtures > 0, (
+            "num_quasipartition_mixtures must be positive"
+        )
+        assert num_poisson_processes_per_quasipartition > 0, (
+            "num_poisson_processes_per_quasipartition must be positive"
+        )
+        self.latent_dim = (
+            num_quasipartition_mixtures * num_poisson_processes_per_quasipartition
+        )
         # Will need to reshape the latents to be 2D so that
         #   - the last dim represents Poisson processes that parametrize a distribution of quasipartitions
         #   - the second last dim represents the number of mixtures of such quasipartition distributions
-        self.latent_2d_shape = torch.Size([num_quasipartition_mixtures, num_poisson_processes_per_quasipartition])
-        if measure == 'lebesgue':
+        self.latent_2d_shape = torch.Size(
+            [num_quasipartition_mixtures, num_poisson_processes_per_quasipartition]
+        )
+        if measure == "lebesgue":
             self.measure = LebesgueMeasure(shape=self.latent_2d_shape)
-        elif measure == 'gaussian':
+        elif measure == "gaussian":
             self.measure = GaussianBasedMeasure(shape=self.latent_2d_shape)
         else:
-            raise ValueError(f'Unsupported measure={measure}')
-        if shape == 'halfline':
+            raise ValueError(f"Unsupported measure={measure}")
+        if shape == "halfline":
             self.shape = HalfLineShape()
-        elif shape == 'gaussian':
+        elif shape == "gaussian":
             self.shape = GaussianShape()
         else:
-            raise ValueError(f'Unsupported shape={shape}')
+            raise ValueError(f"Unsupported shape={shape}")
         self.discounted = discounted
         if discounted:
-            self.quasipartition_aggregator = DiscountedDistanceAggregator(num_quasipartition_mixtures=num_quasipartition_mixtures)
+            self.quasipartition_aggregator = DiscountedDistanceAggregator(
+                num_quasipartition_mixtures=num_quasipartition_mixtures
+            )
         else:
-            self.quasipartition_aggregator = DistanceAggregator(num_quasipartition_mixtures=num_quasipartition_mixtures)
+            self.quasipartition_aggregator = DistanceAggregator(
+                num_quasipartition_mixtures=num_quasipartition_mixtures
+            )
 
     def forward(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         assert u.shape[-1] == v.shape[-1] == self.latent_dim
@@ -134,11 +152,14 @@ class PQE(nn.Module):
         return get_num_effective_parameters(self)
 
     def extra_repr(self) -> str:
-        return '\n'.join([
-            f'num_quasipartition_mixtures={self.latent_2d_shape[0]}',
-            f'num_poisson_processes_per_quasipartition={self.latent_2d_shape[1]}',
-            f'num_effective_parameters={self.num_effective_parameters()}',
-            f'discounted={self.discounted}',
-        ])
+        return "\n".join(
+            [
+                f"num_quasipartition_mixtures={self.latent_2d_shape[0]}",
+                f"num_poisson_processes_per_quasipartition={self.latent_2d_shape[1]}",
+                f"num_effective_parameters={self.num_effective_parameters()}",
+                f"discounted={self.discounted}",
+            ]
+        )
 
-__all__ = ['PQE']
+
+__all__ = ["PQE"]
