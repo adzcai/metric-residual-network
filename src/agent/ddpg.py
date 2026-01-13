@@ -1,13 +1,14 @@
 import copy
-import numpy as np
 import time
-import torch
 
+import numpy as np
+import torch
 from mpi4py import MPI
+
+from src.agent.base import Agent
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.agent.base import Agent
 
 
 class DDPG(Agent):

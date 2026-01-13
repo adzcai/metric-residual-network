@@ -1,11 +1,11 @@
-import numpy as np
 import time
 
+import numpy as np
+
+from src.agent.base import Agent
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.agent.base import Agent
-
 
 ################################################################################
 #

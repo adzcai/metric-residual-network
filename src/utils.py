@@ -1,12 +1,11 @@
-import numpy as np
-import gymnasium as gym
 import threading
-import torch
-import matplotlib.pyplot as plt
 
-from mpi4py import MPI
-
+import gymnasium as gym
 import gymnasium_robotics
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from mpi4py import MPI
 
 gym.register_envs(gymnasium_robotics)
 

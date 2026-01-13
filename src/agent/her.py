@@ -1,7 +1,7 @@
+from src.agent.ddpg import DDPG
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.agent.ddpg import DDPG
 
 
 class HER(DDPG):

@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 
+from .measures import GaussianBasedMeasure, LebesgueMeasure, MeasureBase
 from .quasipartition_aggregators import (
-    QuasipartitionAggregatorBase,
-    DistanceAggregator,
     DiscountedDistanceAggregator,
+    DistanceAggregator,
+    QuasipartitionAggregatorBase,
 )
-from .measures import MeasureBase, LebesgueMeasure, GaussianBasedMeasure
-from .shapes import ShapeBase, HalfLineShape, GaussianShape
+from .shapes import GaussianShape, HalfLineShape, ShapeBase
 from .utils import get_num_effective_parameters
 
 

@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 import warnings
 
 from torch.utils.cpp_extension import load

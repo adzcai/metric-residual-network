@@ -1,8 +1,8 @@
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import sys
-
 
 fig, axs = plt.subplots(3, 4, figsize=(20, 10))
 

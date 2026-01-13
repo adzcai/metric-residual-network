@@ -1,11 +1,12 @@
-import numpy as np
 import time
+
+import numpy as np
 import torch
 
+from src.agent.her import HER
 from src.model import *
 from src.replay_buffer import ReplayBuffer
 from src.utils import *
-from src.agent.her import HER
 
 
 class MHER(HER):

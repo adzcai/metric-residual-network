@@ -1,8 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
-from .utils import DeepLinearNet, sigmoid_pow, multidot
+from .utils import DeepLinearNet, multidot, sigmoid_pow
 
 
 class QuasipartitionAggregatorBase(nn.Module):

@@ -1,12 +1,11 @@
 import abc
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 from . import cdf_ops
-
-from .measures import MeasureBase, LebesgueMeasure, GaussianBasedMeasure
+from .measures import GaussianBasedMeasure, LebesgueMeasure, MeasureBase
 
 
 class ShapeBase(nn.Module, metaclass=abc.ABCMeta):

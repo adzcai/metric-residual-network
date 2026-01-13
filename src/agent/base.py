@@ -1,11 +1,11 @@
 import os
+
 import numpy as np
 import torch
 
 from src.model import *
-from src.utils import *
 from src.sampler import Sampler
-
+from src.utils import *
 
 ################################################################################
 #
