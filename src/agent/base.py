@@ -14,7 +14,7 @@ from src.utils import *
 ################################################################################
 
 
-class Agent(object):
+class Agent:
     """
     The sparse reward RL agent superclass
     """

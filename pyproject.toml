@@ -1,7 +1,7 @@
 [project]
 name = "mher"
 version = "0.1.0"
-authors = [{name = "Bo Liu"}]
+authors = [{ name = "Bo Liu" }]
 description = "Official PyTorch Implementation for Metric Residual Networks for Sample Efficient Goal-Conditioned Reinforcement Learning"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -11,3 +11,6 @@ dependencies = [
     "mpi4py>=4.1.1",
     "torch>=2.9.1",
 ]
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "SIM", "I"]

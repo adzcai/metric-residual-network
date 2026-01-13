@@ -3,7 +3,7 @@ import threading
 import numpy as np
 
 
-class ReplayBuffer(object):
+class ReplayBuffer:
     """
     The buffer class that stores past trajectories.
     For each value, the buffer shape is (size, max_episode_steps(+1), dim_x)

@@ -17,7 +17,7 @@ gym.register_envs(gymnasium_robotics)
 ################################################################################
 
 
-class Normalizer(object):
+class Normalizer:
     """
     A helper class for online normalizing observations / goals.
     It keeps the (sum_i X_i) and (sum_i X_i^2) and count for computing variance.

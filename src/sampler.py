@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Sampler(object):
+class Sampler:
     """
     Helper class to sample transitions for learning.
     Methods like sample_her_transitions will relabel part of trajectories.
