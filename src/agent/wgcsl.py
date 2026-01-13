@@ -72,7 +72,7 @@ class WGCSL(GCSL):
                 size,
                 args,
                 self._get_Q,
-                self.env.compute_reward,
+                self.env.unwrapped.compute_reward,
                 self.adv_que,
             )
 

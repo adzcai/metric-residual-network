@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 
@@ -40,7 +41,7 @@ class Agent(object):
         self.g_norm = Normalizer(
             size=args.dim_goal, default_clip_range=self.args.clip_range
         )
-        self.sampler = Sampler(args, self.env.compute_reward)
+        self.sampler = Sampler(args, self.env.unwrapped.compute_reward)
         self.sample_func = self.sampler.sample_ddpg_transitions
 
     def _preproc_inputs(self, s=None, g=None, unsqueeze=False):
@@ -135,7 +136,7 @@ class Agent(object):
         success = np.zeros((n_episodes), np.float32)
 
         for i in range(n_episodes):
-            o = self.env.reset()
+            o, _info = self.env.reset()
             for t in range(T):
                 if uniform_random_action:
                     a = np.random.uniform(
@@ -143,7 +144,7 @@ class Agent(object):
                     )
                 else:
                     a = self.select_action(o, stochastic=stochastic)
-                new_o, r, d, info = self.env.step(a)
+                new_o, r, _term, _trunc, info = self.env.step(a)
                 S[i][t] = o["observation"].copy()
                 AG[i][t] = o["achieved_goal"].copy()
                 G[i][t] = o["desired_goal"].copy()
@@ -159,11 +160,11 @@ class Agent(object):
         total_success_rate = []
         for _ in range(self.args.eval_rollout_n_episodes):
             per_success_rate = []
-            o = self.env.reset()
+            o, _info = self.env.reset()
             for _ in range(self.args.max_episode_steps):
                 with torch.no_grad():
                     a = self.select_action(o, stochastic=False)
-                o, _, _, info = self.env.step(a)
+                o, _, _term, _trunc, info = self.env.step(a)
                 per_success_rate.append(info["is_success"])
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)

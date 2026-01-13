@@ -44,7 +44,7 @@ def make_env(args):
 
 
 def setup(args, env):
-    obs = env.reset()
+    obs, _info = env.reset()
     o, ag, g = obs["observation"], obs["achieved_goal"], obs["desired_goal"]
 
     args.dim_state = o.shape[0]
@@ -86,7 +86,7 @@ def main(args):
     env = make_env(args)
 
     # control seed
-    env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    # env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
